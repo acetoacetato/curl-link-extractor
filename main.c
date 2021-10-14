@@ -41,18 +41,15 @@ size_t write_callback(void *contenido, size_t size, size_t nmemb, void *userp)
 }
 
 // Función que utiliza curl.h para extraer el html de una página y guardarlo en memoria
-mem *fetch_url(char *url)
+mem *fetch_url(char *url, CURL* curl)
 {
     // Inicializaciones básicas
-    CURL *curl;
     CURLcode res;
-    curl = curl_easy_init();
     mem *memoria = (mem *)malloc(sizeof(mem));
     // Esto se irá ajustando de acuerdo a cuánto necesite
     memoria->memory = malloc(1);
     memoria->size = 0;
 
-    curl_global_init(CURL_GLOBAL_ALL);
 
     if (!curl)
     {
@@ -62,6 +59,8 @@ mem *fetch_url(char *url)
 
     // Se inicializa la petición de curl con la url a pedir
     curl_easy_setopt(curl, CURLOPT_URL, url);
+
+    curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 0 );
 
     // Se establece que cada vez que se recibe un bloque de datos desde la url,
     //  se llama a la función write_callback
@@ -81,21 +80,18 @@ mem *fetch_url(char *url)
         fprintf(stderr, "curl_easy_perform() falla: %s\n", curl_easy_strerror(res));
     }
 
-    // Limpiamos todo lo que utilizó curl
-    curl_easy_cleanup(curl);
-
     // Retornamos el contenido html
     return memoria;
 }
 
 // Araña de un webcrawler.
 //  Esta sólo extrae los enlaces y los imprime.
-void spider(void *data)
+void spider(void *data, CURL* curl)
 {
 
     char *url = (char *)data;
     // Extrae todo el html de la url
-    mem *memoria = fetch_url(url);
+    mem *memoria = fetch_url(url, curl);
     // Comienza buscando el primer enlace (Asumiendo que está en una propiedad href)
     char *inicio = strstr(memoria->memory, "href=\"");
     char *final = NULL;
@@ -138,8 +134,14 @@ void spider(void *data)
 
 int main(int argc, char *argv)
 {
+    // Inicializamos la librería curl y una instancia para manejar las solicitudes
+    curl_global_init(CURL_GLOBAL_ALL);
+    CURL* curl = curl_easy_init();
 
     // Llama a una araña para que analice una página
-    spider("https://www.google.cl/");
+    spider("https://www.google.cl/", curl);
+    spider("https://www.pucv.cl/", curl);
+    
+    
     return 0;
 }
